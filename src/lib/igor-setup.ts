@@ -30,7 +30,7 @@ export class IgorSetup {
     fs.ensureDirSync(this.workingDir);
     this.userDir = path.join(this.workingDir, "gm-user", this.userName);
     fs.ensureDirSync(this.userDir);
-    this._populateUserDir();
+    this.populateUserDir();
   }
 
   get workingDirDevices() {
@@ -177,37 +177,65 @@ export class IgorSetup {
 
   async getIgorLicense() {
     // Get the license file
-    const licenseFileDir = path.join(this.userDir, "licence.plist");
-    if (!fs.existsSync(licenseFileDir)) {
-      const fetchLicenseArgs = [
-        "runtime",
-        "FetchLicense",
-        `-ak=${this.accessKey}`,
-        `-of=${licenseFileDir}`,
-      ];
+    const tempUserDir = this.userDir;
+    let licenseFileDir = path.join(tempUserDir, "licence.plist");
+    let needNewLicense = false;
 
-      console.log(this.igorExecutable);
-      console.log(fetchLicenseArgs.join("\n"));
-      console.log([this.igorExecutable, fetchLicenseArgs.join(" ")].join(" "));
-
-      ps.spawnSync(this.igorExecutable, fetchLicenseArgs, {
-        stdio: "inherit",
-        cwd: path.dirname(this.igorExecutable),
-      });
+    if (fs.existsSync(licenseFileDir)) {
+      core.info(`Found existing license file at: ${licenseFileDir}`);
+      if (this.licenseIsStillValid(licenseFileDir)) {
+        core.info(`Existing license file is still valid.`);
+      } else {
+        core.info(`Existing license file is expired.`);
+        needNewLicense = true;
+      }
     } else {
-      core.info(`License file already exists at: ${licenseFileDir}`);
+      core.info(`License file does not exist.`);
+      needNewLicense = true;
     }
 
-    const licenseFile = fs.readFileSync(licenseFileDir, "utf-8");
-    const licenseFileContent = plist.parse(licenseFile) as any;
-    const userName = licenseFileContent.email.split("@")[0];
-    const id = licenseFileContent.id;
-    this.userName = `${userName}_${id}`;
-    const newUserDir = path.join(this.workingDir, "gm-user", this.userName);
-    fs.ensureDirSync(newUserDir);
-    fs.copySync(this.userDir, newUserDir);
-    fs.removeSync(this.userDir);
-    this.userDir = newUserDir;
+    if (needNewLicense) {
+      await this.getNewLicense(licenseFileDir);
+    }
+    return needNewLicense;
+  }
+
+  async getNewLicense(licenseFileDir: string) {
+    core.info("Getting new license from Igor...");
+
+    const fetchLicenseArgs = [
+      "runtime",
+      "FetchLicense",
+      `-ak=${this.accessKey}`,
+      `-of=${licenseFileDir}`
+    ];
+
+    console.log(this.igorExecutable);
+    console.log(fetchLicenseArgs.join("\n"));
+    console.log([this.igorExecutable, fetchLicenseArgs.join(" ")].join(" "));
+
+    ps.spawnSync(this.igorExecutable, fetchLicenseArgs, {
+      stdio: "inherit",
+      cwd: path.dirname(this.igorExecutable)
+    });
+  }
+
+  licenseIsStillValid(licenseFileDir: string) {
+    if (!fs.existsSync(licenseFileDir)) {
+      throw new Error("Failed to fetch license file from Igor!");
+    } else {
+      const licenseFile = fs.readFileSync(licenseFileDir, "utf-8");
+      const licenseFileContent = plist.parse(licenseFile) as any;
+      const expiryDate = licenseFileContent.expiry_date;
+      if (!expiryDate) {
+        return true;
+      } else {
+        //Format is like "2026-06-27 23:59:59 UTC"
+        const expiryDateObj = new Date(expiryDate);
+        const now = new Date();
+        return expiryDateObj > now;
+      }
+    }
   }
 
   getDefaultModulesIfNull(modules?: ModuleAliases[]) {
@@ -263,7 +291,7 @@ export class IgorSetup {
         core.info([this.igorExecutable, args.join(" ")].join(" "));
         ps.spawnSync(this.igorExecutable, args, {
           stdio: "inherit",
-          cwd: path.dirname(this.igorExecutable),
+          cwd: path.dirname(this.igorExecutable)
         });
         this.targetModules = targetAndOsModules;
       } else {
@@ -316,7 +344,7 @@ export class IgorSetup {
 
     const cmd = this.igorExecutable;
     const res = ps.spawnSync(cmd, args, {
-      cwd: path.dirname(cmd),
+      cwd: path.dirname(cmd)
     });
     const output = res.output.toString();
     core.info(output);
@@ -326,7 +354,7 @@ export class IgorSetup {
   /**
    * @description Create a working dir where the local_settings is copied to. The local_settings file will also point to the temp and cache dir.
    */
-  private _populateUserDir() {
+  populateUserDir() {
     fs.writeJsonSync(this.workingDirLocalSettings, this._createLocalSettings());
     let devicesJsonContent = { mac: {} };
     if (this.devicesSettingsFile) {
@@ -338,8 +366,13 @@ export class IgorSetup {
   }
 
   private _createLocalSettings() {
-    const visual_studio_path =
+    const visual_studio_path_2022 =
       "C:\\Program Files\\Microsoft Visual Studio\\2022\\Enterprise\\Common7\\Tools\\VsDevCmd.bat"; //See https://github.com/actions/runner-images/blob/main/images/windows/Windows2022-Readme.md#visual-studio-enterprise-2022
+    const visual_studio_path_2026 =
+      "C:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\Common7\\Tools\\VsDevCmd.bat";
+    const visual_studio_path = fs.existsSync(visual_studio_path_2022)
+      ? visual_studio_path_2022
+      : visual_studio_path_2026;
     const defaultLocalSettings: Partial<LocalSettings> = {
       "machine.Platform Settings.Windows.visual_studio_path":
         visual_studio_path,
@@ -364,7 +397,7 @@ export class IgorSetup {
       targetRuntime: this.targetRuntime,
       "machine.Platform Settings.operagx.sdk_dir": process.env.EMSDK,
       "machine.Platform Settings.operagx.default_package_choice": 4,
-      "machine.Platform Settings.macOS.suppress_build": true,
+      "machine.Platform Settings.macOS.suppress_build": true
     };
 
     const localSettings = defaultLocalSettings;
@@ -446,32 +479,27 @@ export class IgorSetup {
   }
 
   private _inferFeed() {
-    let feed = "https://gms.yoyogames.com/Zeus-Runtime-NuBeta.rss";
-    if (!this._runtimeExists(feed)) {
-      feed = "https://gms.yoyogames.com/Zeus-Runtime-NuBeta-I.rss";
-      if (!this._runtimeExists(feed)) {
-        feed = "https://gms.yoyogames.com/Zeus-Runtime.rss";
-        if (!this._runtimeExists(feed)) {
-          if (!this._runtimeExists(feed)) {
-            feed = "https://gms.yoyogames.com/Zeus-Runtime-LTS.rss";
-            if (!this._runtimeExists(feed)) {
-              if (!this._runtimeExists(feed)) {
-                feed = "https://gms.yoyogames.com/Zeus-Runtime-Nocturnus-I.rss";
-                if (!this._runtimeExists(feed)) {
-                  throw "Runtime does not exist in GameMaker's RSS feed!";
-                }
-              }
-            }
-          }
-        }
+    const feeds = [
+      "https://gms.yoyogames.com/Zeus-Runtime-NuBeta.rss",
+      "https://gms.yoyogames.com/Zeus-Runtime-NuBeta-I.rss",
+      "https://gms.yoyogames.com/Zeus-Runtime.rss",
+      "https://gms.yoyogames.com/Zeus-Runtime-LTS.rss",
+      "https://gms.yoyogames.com/Zeus-Runtime-LTS2026.rss",
+      "https://gms.yoyogames.com/Zeus-Runtime-Nocturnus-I.rss"
+    ];
+
+    for (const feed of feeds) {
+      if (this._runtimeExists(feed)) {
+        //Cache busting by adding day and hour to the feed url
+        const date = new Date();
+        const day = date.getDay();
+        const hour = date.getHours();
+        const cacheBustingPostfix = `?day=${day}&hour=${hour}`;
+        return feed + cacheBustingPostfix;
       }
     }
-    //Cache busting by adding day and hour to the feed url
-    const date = new Date();
-    const day = date.getDay();
-    const hour = date.getHours();
-    const cacheBustingPostfix = `?day=${day}&hour=${hour}`;
-    return feed + cacheBustingPostfix;
+
+    throw "Runtime does not exist in GameMaker's RSS feed!";
   }
 
   private _getVersionParts(version: string) {
@@ -480,7 +508,7 @@ export class IgorSetup {
       major: versionParts[0],
       minor: versionParts[1],
       patch: versionParts[2],
-      revision: versionParts[3],
+      revision: versionParts[3]
     };
   }
 
@@ -509,7 +537,7 @@ export class IgorSetup {
       fs.chmodSync(postInstallSh, 0o777);
       ps.spawnSync("sh", [postInstallSh], {
         stdio: "inherit",
-        cwd: this.targetRuntimeDir,
+        cwd: this.targetRuntimeDir
       });
     }
 
@@ -539,7 +567,7 @@ export class IgorSetup {
         fs.chmodSync(optimizeSh, 0o777);
         ps.spawnSync("sh", [optimizeSh], {
           stdio: "inherit",
-          cwd: this.targetRuntimeDir,
+          cwd: this.targetRuntimeDir
         });
       }
     }

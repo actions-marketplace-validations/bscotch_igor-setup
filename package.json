@@ -1,7 +1,7 @@
 {
   "name": "igor-setup",
   "author": "Shi Chen",
-  "version": "1.3.0",
+  "version": "1.4.2",
   "main": "./build/index.js",
   "type": "module",
   "files": [
@@ -20,8 +20,8 @@
   },
   "license": "MIT",
   "dependencies": {
-    "@actions/cache": "^4.0.3",
-    "@actions/core": "^1.11.1",
+    "@actions/cache": "^6.0.1",
+    "@actions/core": "^3.0.1",
     "@bscotch/gamemaker-releases": "^0.8.0",
     "adm-zip": "^0.5.16",
     "fs-extra": "^11.3.0",
@@ -32,7 +32,7 @@
     "@types/chai": "^5.2.1",
     "@types/fs-extra": "^11.0.4",
     "@types/mocha": "^10.0.10",
-    "@types/node": "^22.15.3",
+    "@types/node": "^24.12.4",
     "@types/plist": "^3.0.5",
     "@typescript-eslint/eslint-plugin": "^8.31.1",
     "@typescript-eslint/parser": "^8.31.1",
@@ -41,7 +41,7 @@
     "dotenv": "^16.5.0",
     "eslint": "^9.25.1",
     "eslint-plugin-prettier": "^5.2.6",
-    "mocha": "^11.2.2",
+    "mocha": "^11.7.6",
     "prettier": "^3.5.3",
     "rimraf": "^6.0.1",
     "tsc-alias": "^1.8.15",

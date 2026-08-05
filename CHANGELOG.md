@@ -1,5 +1,27 @@
 # Changelog
 
+## [1.4.2](https://github.com/bscotch/igor-setup/compare/v1.4.1...v1.4.2) (2026-06-04)
+
+
+### Bug Fixes
+
+* Stop parsing the user name and id and just use the tempUser dir as the user settings dir. This makes the dir deterministic and we can cache and restore it. ([5fd3c85](https://github.com/bscotch/igor-setup/commit/5fd3c850ddac417519ada3e354cd0a2e12f3f8ca))
+
+## [1.4.1](https://github.com/bscotch/igor-setup/compare/v1.4.0...v1.4.1) (2026-06-04)
+
+
+### Bug Fixes
+
+* License file caching should now work correctly. ([7b97710](https://github.com/bscotch/igor-setup/commit/7b9771003502523c448fcb321f8765551d9a6e0b))
+
+## [1.4.0](https://github.com/bscotch/igor-setup/compare/v1.3.0...v1.4.0) (2026-05-28)
+
+
+### Features
+
+* add support for gamemaker lts 2026, thanks @BenjaminHalko for the contribution! closes [#22](https://github.com/bscotch/igor-setup/issues/22) ([5d37d17](https://github.com/bscotch/igor-setup/commit/5d37d1717798cc607c038048c9759cb2ecf688b5))
+* support visual studio 2026, thanks @BenjaminHalko for the contribution! closes [#21](https://github.com/bscotch/igor-setup/issues/21) ([5d37d17](https://github.com/bscotch/igor-setup/commit/5d37d1717798cc607c038048c9759cb2ecf688b5))
+
 ## [1.3.0](https://github.com/bscotch/igor-setup/compare/v1.2.1...v1.3.0) (2026-01-06)
 
 
